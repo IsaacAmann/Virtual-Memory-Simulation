@@ -94,21 +94,28 @@ int main()
 	
 	
 	//NCurses setup
-	WINDOW* windows[2];
-	PANEL* panels[2];
+	PANEL* panels[3];
 	initscr();
+	int width = ((float)1/3) * COLS;
+	int height = LINES;
 	
-	windows[0] = newwin(LINES, ((float)1/3)*COLS, 0, 0);
-	windows[1] = newwin(LINES, ((float)2/3)*COLS, 0 , ((float)1/3)*COLS);
+	WINDOW* leftWindow = newwin(height, width, 0, 0);
+	WINDOW* middleWindow = newwin(height, width, 0, width); 
+	WINDOW* rightWindow = newwin(height, width, 0, width*2);
 	
-	panels[0] = new_panel(windows[0]);
-	panels[1] = new_panel(windows[1]);
 	
-	box(windows[0],0,0);
-	box(windows[1],0,0);
+	panels[0] = new_panel(leftWindow);
+	panels[1] = new_panel(rightWindow);
+	panels[2] = new_panel(middleWindow);
 	
-	update_panels();
+	box(leftWindow,0,0);
+	box(rightWindow,0,0);
+	box(middleWindow,0,0);
 	
+	
+	wprintw(leftWindow, "Current Process Page Table");
+	wprintw(middleWindow, "Main Memory");
+	wprintw(rightWindow, "Disk");
 	doupdate();
 
 	while(true)
@@ -122,10 +129,11 @@ int main()
 			//displayQueue(pageQueue);
 			
 		}
+		
 		displayMemory();
 		sleep(.01);
-		//printw("TesT");
-		refresh();
+		update_panels();
+		doupdate();
 	}
 	endwin();
 }
