@@ -3,54 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <panel.h>
-
-#define PAGE_SIZE 50
-#define MAIN_MEM_SIZE 10
-#define DISK_SIZE 100
-#define MAX_PROCESS_PAGES 50
-#define MAX_NUM_PROCESS 100
-
-#define PAGE_NUM_MASK 4095
-struct Page
-{
-	char isAllocated;
-	int processID;
-	int processPageIndex;
-	char data[PAGE_SIZE];
-};
-
-struct Process
-{
-	long* pageTable;
-	int processID;
-	char* processName;
-	long diskLocation;
-	int numberPages;
-};
-
-struct LinkedList
-{
-	void* data;
-	struct LinkedList* next;
-};
-
-//Function headers
-//Struct creators
-struct Page* createMainMemory(int size);
-struct Page* createDisk(int size);
-struct Process* createProcess(char* processName, int pages);
-
-char getByte(long physicalAdress);
-void setByte(char byte, long physicalAddress);
-long getPhysicalAddress(long logicalAddress, int processID);
-int allocateMemory(int processID);
-void displayDisk();
-void displayMemory();
-
-//Linked queue functions
-void addItem(void* data, struct LinkedList** queue);
-void* dequeue(struct LinkedList* queue);
-void displayQueue(struct LinkedList* queue);
+#include "VirtualMemorySim.h"
 
 //Global variables
 struct Process* processTable[MAX_NUM_PROCESS];
@@ -63,6 +16,12 @@ struct Page* nextDiskPartition;
 struct LinkedList* pageQueue;
 //Keep track of how many pages are loaded into memory
 int loadedPages;
+//flag for tracking whether or not to exit
+int isRunning;
+//Windows
+WINDOW* leftWindow;
+WINDOW* middleWindow;
+WINDOW* rightWindow;
 
 //ncurses stuff
 int LEFT_PANEL_COL;
@@ -78,7 +37,7 @@ int main()
 	//start next partition pointer at start of disk
 	nextDiskPartition = disk;
 	loadedPages = 0;
-	
+	isRunning = 1;
 	
 	//Create processes 
 	processTable[0] = createProcess("Process1", 4);
@@ -92,17 +51,16 @@ int main()
 	setByte('A', getPhysicalAddress(0,3));
 	printf("Byte: %d\n", getByte(getPhysicalAddress(0, 3)));
 	
-	
 	//NCurses setup
 	PANEL* panels[3];
 	initscr();
+	noecho();
 	int width = ((float)1/3) * COLS;
 	int height = LINES;
 	
-	WINDOW* leftWindow = newwin(height, width, 0, 0);
-	WINDOW* middleWindow = newwin(height, width, 0, width); 
-	WINDOW* rightWindow = newwin(height, width, 0, width*2);
-	
+	leftWindow = newwin(height, width, 0, 0);
+	middleWindow = newwin(height, width, 0, width); 
+	rightWindow = newwin(height, width, 0, width*2);
 	
 	panels[0] = new_panel(leftWindow);
 	panels[1] = new_panel(rightWindow);
@@ -112,14 +70,18 @@ int main()
 	box(rightWindow,0,0);
 	box(middleWindow,0,0);
 	
-	
 	wprintw(leftWindow, "Current Process Page Table");
+	wprintw(leftWindow, "\nProcess: ");
 	wprintw(middleWindow, "Main Memory");
 	wprintw(rightWindow, "Disk");
 	doupdate();
-
-	while(true)
+	
+	
+	while(isRunning)
 	{
+		//Handle user input
+		handleInput(getch());
+		
 		//Do a random memory access for each process in the process table
 		for(int i = 0; i < 4; i++)
 		{
@@ -136,6 +98,12 @@ int main()
 		doupdate();
 	}
 	endwin();
+}
+
+void handleInput(char input)
+{
+	waddch(leftWindow, input);
+	
 }
 
 void displayMemory()
