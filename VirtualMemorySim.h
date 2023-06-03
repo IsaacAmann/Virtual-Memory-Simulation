@@ -50,5 +50,10 @@ extern void* dequeue(struct LinkedList* queue);
 extern void displayQueue(struct LinkedList* queue);
 
 //Display and UI
-extern void handleInput(char input);
+extern void handleInput(int input);
+extern void drawProcesses();
+extern void drawDisk();
+extern void drawMemory();
+
+extern char* intToString(int input);
 

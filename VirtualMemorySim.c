@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <panel.h>
+#include <string.h>
+#include <math.h>
 #include "VirtualMemorySim.h"
+
 
 //Global variables
 struct Process* processTable[MAX_NUM_PROCESS];
@@ -18,6 +21,8 @@ struct LinkedList* pageQueue;
 int loadedPages;
 //flag for tracking whether or not to exit
 int isRunning;
+//Track number of created proceses
+int numberProcesses;
 //Windows
 WINDOW* leftWindow;
 WINDOW* middleWindow;
@@ -44,6 +49,7 @@ int main()
 	processTable[1] = createProcess("Process2", 2);
 	processTable[2] = createProcess("Process3", 5);
 	processTable[3] = createProcess("Process4", 2);
+	numberProcesses = 4;
 	
 	//Test memory access
 	//getPhysicalAddress(0, 1);
@@ -55,6 +61,12 @@ int main()
 	PANEL* panels[3];
 	initscr();
 	noecho();
+	//Enables arrow keys 
+	keypad(stdscr, 1);
+	//Prevents input from blocking
+	timeout(1);
+	//Hide cursor 
+	curs_set(1);
 	int width = ((float)1/3) * COLS;
 	int height = LINES;
 	
@@ -66,12 +78,17 @@ int main()
 	panels[1] = new_panel(rightWindow);
 	panels[2] = new_panel(middleWindow);
 	
+	//enable scrolling for windows
+	scrollok(leftWindow, 1);
+	scrollok(middleWindow, 1);
+	scrollok(rightWindow, 1);
+	
 	box(leftWindow,0,0);
 	box(rightWindow,0,0);
 	box(middleWindow,0,0);
 	
 	wprintw(leftWindow, "Current Process Page Table");
-	wprintw(leftWindow, "\nProcess: ");
+	//wprintw(leftWindow, "\nProcess: ");
 	wprintw(middleWindow, "Main Memory");
 	wprintw(rightWindow, "Disk");
 	doupdate();
@@ -79,8 +96,16 @@ int main()
 	
 	while(isRunning)
 	{
+		werase(leftWindow);
+		werase(middleWindow);
+		werase(rightWindow);
+		
+		box(leftWindow,0,0);
+		box(rightWindow,0,0);
+		box(middleWindow,0,0);
 		//Handle user input
 		handleInput(getch());
+		
 		
 		//Do a random memory access for each process in the process table
 		for(int i = 0; i < 4; i++)
@@ -91,19 +116,86 @@ int main()
 			//displayQueue(pageQueue);
 			
 		}
-		
 		displayMemory();
-		sleep(.01);
+		
+		
+		drawProcesses();
+		drawDisk();
+		drawMemory();
+		
+		sleep(.1);
 		update_panels();
 		doupdate();
 	}
 	endwin();
 }
 
-void handleInput(char input)
+void drawProcesses()
 {
-	waddch(leftWindow, input);
 	
+	for(int i = 0; i < numberProcesses; i++)
+	{
+		waddstr(leftWindow, "Process ID: ");
+		
+		
+		waddstr(leftWindow, "Process name: ");
+		waddstr(leftWindow, processTable[i]->processName);
+		waddch(leftWindow, '\n');
+		
+	}
+}
+
+void drawMemory()
+{
+	
+}
+
+void drawDisk()
+{
+	
+}
+
+char* intToString(int input)
+{
+	int digits = 0;
+	int negative = 0;
+	if(input < 0)
+		negative = 1;
+	input = abs(input);
+	
+	digits += floor(log10(input)) + 1;
+	int size = digits + negative;
+	char* output = malloc(sizeof(char) * (size + 1));
+	
+	int i = 0;
+	if(negative)
+	{
+		output[0] = '-';
+		i++;
+	}
+	for(i = 0; i < size; i++)
+	{
+		printf("%c\n", ((int) floor(input / pow(10, i)) % 10) + 48);
+		output[size - i - 1] = ((int) floor(input / pow(10, i)) % 10) + 48;
+	}
+	output[size] = '\0';
+	return output;
+}
+
+void handleInput(int input)
+{
+	
+	switch(input)
+	{
+		case KEY_UP:
+			waddch(leftWindow, 'f');
+			waddch(middleWindow, 'g');
+		break;
+		
+		default:
+			//waddch(leftWindow, input);
+		break;	
+	}
 }
 
 void displayMemory()
