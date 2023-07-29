@@ -7,6 +7,7 @@
 #include <math.h>
 #include "VirtualMemorySim.h"
 
+#define ncursesMode 0
 
 //Global variables
 struct Process* processTable[MAX_NUM_PROCESS];
@@ -56,98 +57,148 @@ int main()
 	//getPhysicalAddress(0,3);
 	setByte('A', getPhysicalAddress(0,3));
 	printf("Byte: %d\n", getByte(getPhysicalAddress(0, 3)));
-	
-	//NCurses setup
-	PANEL* panels[3];
-	initscr();
-	noecho();
-	//Enables arrow keys 
-	keypad(stdscr, 1);
-	//Prevents input from blocking
-	timeout(1);
-	//Hide cursor 
-	curs_set(1);
-	int width = ((float)1/3) * COLS;
-	int height = LINES;
-	
-	leftWindow = newwin(height, width, 0, 0);
-	middleWindow = newwin(height, width, 0, width); 
-	rightWindow = newwin(height, width, 0, width*2);
-	
-	panels[0] = new_panel(leftWindow);
-	panels[1] = new_panel(rightWindow);
-	panels[2] = new_panel(middleWindow);
-	
-	//enable scrolling for windows
-	scrollok(leftWindow, 1);
-	scrollok(middleWindow, 1);
-	scrollok(rightWindow, 1);
-	
-	box(leftWindow,0,0);
-	box(rightWindow,0,0);
-	box(middleWindow,0,0);
-	
-	wprintw(leftWindow, "Current Process Page Table");
-	//wprintw(leftWindow, "\nProcess: ");
-	wprintw(middleWindow, "Main Memory");
-	wprintw(rightWindow, "Disk");
-	doupdate();
-	
-	
-	while(isRunning)
+	if(ncursesMode)
 	{
-		werase(leftWindow);
-		werase(middleWindow);
-		werase(rightWindow);
+		//NCurses setup
+		PANEL* panels[3];
+		initscr();
+		noecho();
+		//Enables arrow keys 
+		keypad(stdscr, 1);
+		//Prevents input from blocking
+		timeout(1);
+		//Hide cursor 
+		curs_set(1);
+		//color setup
+		start_color();
+		init_pair(1, COLOR_RED, COLOR_BLACK);
+		init_pair(2, COLOR_GREEN, COLOR_BLACK);
+		init_pair(3, COLOR_YELLOW, COLOR_BLACK);
+		init_pair(4, COLOR_BLUE, COLOR_BLACK);
+		init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
+		init_pair(6, COLOR_CYAN, COLOR_BLACK);
+		int width = ((float)1/3) * COLS;
+		int height = LINES;
+		
+		leftWindow = newwin(height, width, 0, 0);
+		middleWindow = newwin(height, width, 0, width); 
+		rightWindow = newwin(height, width, 0, width*2);
+		
+		panels[0] = new_panel(leftWindow);
+		panels[1] = new_panel(rightWindow);
+		panels[2] = new_panel(middleWindow);
+		
+		//enable scrolling for windows
+		scrollok(leftWindow, 1);
+		scrollok(middleWindow, 1);
+		scrollok(rightWindow, 1);
 		
 		box(leftWindow,0,0);
 		box(rightWindow,0,0);
 		box(middleWindow,0,0);
-		//Handle user input
-		handleInput(getch());
 		
-		
-		//Do a random memory access for each process in the process table
-		for(int i = 0; i < 4; i++)
-		{
-			struct Process* process = processTable[i];
-			long pageNumber = rand() % process->numberPages;
-			getPhysicalAddress(pageNumber << 12, i);
-			//displayQueue(pageQueue);
-			
-		}
-		displayMemory();
-		
-		
-		drawProcesses();
-		drawDisk();
-		drawMemory();
-		
-		sleep(.1);
-		update_panels();
+		wprintw(leftWindow, "Current Process Page Table");
+		//wprintw(leftWindow, "\nProcess: ");
+		wprintw(middleWindow, "Main Memory");
+		wprintw(rightWindow, "Disk");
 		doupdate();
+		
+		
+		while(isRunning)
+		{
+			werase(leftWindow);
+			werase(middleWindow);
+			werase(rightWindow);
+			
+			box(leftWindow,0,0);
+			box(rightWindow,0,0);
+			box(middleWindow,0,0);
+			//Handle user input
+			handleInput(getch());
+			
+			
+			//Do a random memory access for each process in the process table
+			for(int i = 0; i < numberProcesses; i++)
+			{
+				struct Process* process = processTable[i];
+				long pageNumber = rand() % process->numberPages;
+				getPhysicalAddress(pageNumber << 12, i);
+				//displayQueue(pageQueue);
+				//printf("Process ID: %d page number: %d\n",i, pageNumber);
+			}
+			//displayMemory();
+			
+			
+			drawProcesses();
+			drawDisk();
+			drawMemory();
+			
+			sleep(.5);
+			update_panels();
+			doupdate();
+		}
+		endwin();
 	}
-	endwin();
+	else
+	{
+		while(isRunning)
+		{
+			//Do a random memory access for each process in the process table
+			for(int i = 0; i < numberProcesses; i++)
+			{
+				struct Process* process = processTable[i];
+				long pageNumber = rand() % process->numberPages;
+				long address = getPhysicalAddress(pageNumber << 12, i);
+				displayQueue(pageQueue);
+				printf("Address: %d\n", address);
+				printf("Process ID: %d page number: %d\n",i, pageNumber);
+			}
+			//displayMemory();
+			sleep(2);
+		}
+	}
 }
 
 void drawProcesses()
 {
-	
 	for(int i = 0; i < numberProcesses; i++)
 	{
-		waddstr(leftWindow, "Process ID: ");
+		wattron(leftWindow, COLOR_PAIR(processTable[i]->processID + 1));
 		
+		waddstr(leftWindow, "Process ID: ");
+		waddstr(leftWindow, intToString(processTable[i]->processID));
+		waddch(leftWindow, '\n');
 		
 		waddstr(leftWindow, "Process name: ");
 		waddstr(leftWindow, processTable[i]->processName);
 		waddch(leftWindow, '\n');
+		
+		wattrset(leftWindow, A_NORMAL);
 		
 	}
 }
 
 void drawMemory()
 {
-	
+	struct Page currentFrame;
+	for(int i = 0; i < MAIN_MEM_SIZE; i++)
+	{
+		currentFrame = mainMemory[i];
+		char outputString[50];
+		if(currentFrame.isAllocated == 1)
+		{
+			sprintf(outputString, "Frame Number: %d (Unallocated)\n", i);
+			waddstr(middleWindow, outputString);
+		}
+		else
+		{
+			wattron(middleWindow, COLOR_PAIR(currentFrame.processID+1));
+
+			sprintf(outputString, "Frame Number: %d (Allocated to %d)\n", i, currentFrame.processID);
+			waddstr(middleWindow, outputString);
+			wattrset(middleWindow, A_NORMAL);
+		}
+	}
 }
 
 void drawDisk()
@@ -157,28 +208,36 @@ void drawDisk()
 
 char* intToString(int input)
 {
-	int digits = 0;
-	int negative = 0;
-	if(input < 0)
-		negative = 1;
-	input = abs(input);
-	
-	digits += floor(log10(input)) + 1;
-	int size = digits + negative;
-	char* output = malloc(sizeof(char) * (size + 1));
-	
-	int i = 0;
-	if(negative)
+	char* output;
+	if(input != 0)
 	{
-		output[0] = '-';
-		i++;
+		int digits = 0;
+		int negative = 0;
+		if(input < 0)
+			negative = 1;
+		input = abs(input);
+		
+		digits += floor(log10(input)) + 1;
+		int size = digits + negative;
+		output = malloc(sizeof(char) * (size + 1));
+		
+		int i = 0;
+		if(negative)
+		{
+			output[0] = '-';
+			i++;
+		}
+		for(i = 0; i < size; i++)
+		{
+			//printf("%c\n", ((int) floor(input / pow(10, i)) % 10) + 48);
+			output[size - i - 1] = ((int) floor(input / pow(10, i)) % 10) + 48;
+		}
+		output[size] = '\0';
 	}
-	for(i = 0; i < size; i++)
+	else
 	{
-		printf("%c\n", ((int) floor(input / pow(10, i)) % 10) + 48);
-		output[size - i - 1] = ((int) floor(input / pow(10, i)) % 10) + 48;
+		output = "0";
 	}
-	output[size] = '\0';
 	return output;
 }
 
@@ -205,8 +264,8 @@ void displayMemory()
 	//printf("Current Memory");
 	while(currentPage <= mainMemory + MAIN_MEM_SIZE)
 	{
-		//printf("%d\n",currentPage);
-		//printf("Page:%d\n\tCurrentProcessId: %d\n", i, currentPage->processID);
+		printf("%d\n",currentPage);
+		printf("Page:%d\n\tCurrentProcessId: %d\n", i, currentPage->processID);
 		i++;
 		currentPage++;
 	}
